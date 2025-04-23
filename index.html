@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buat Akun & Server Pterodactyl</title>
+  <style>
+    body {
+      background-color: #0c1e3a;
+      color: white;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    form, .result {
+      background: #122a4d;
+      padding: 20px;
+      border-radius: 12px;
+      width: 300px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    input, button {
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+    }
+    .ram-options button {
+      margin: 2px;
+      background: #1d3b6f;
+      color: white;
+      cursor: pointer;
+    }
+    .ram-options button.active {
+      background-color: #4caf50;
+    }
+    .result button {
+      cursor: pointer;
+      background-color: #1d3b6f;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <form id="createForm">
+    <h3>Buat Akun + Server</h3>
+    <input type="text" id="username" placeholder="Username" required>
+    <input type="email" id="email" placeholder="Email" required>
+    <input type="number" id="cpu" placeholder="CPU (%)" required>
+
+    <div class="ram-options" id="ramOptions"></div>
+    <button type="submit">Create</button>
+  </form>
+
+  <div class="result" id="result" style="display:none">
+    <h3>✅ Akun & Server Siap!</h3>
+    <p><strong>Username:</strong> <span id="rUsername"></span></p>
+    <p><strong>Password:</strong> <span id="rPassword"></span></p>
+    <p><strong>Link Web:</strong> <a href="https://xeron.hostingers-vvip.my.id" target="_blank">https://xeron.hostingers-vvip.my.id</a></p>
+    <button onclick="copyToClipboard()">Salin Info</button>
+    <button onclick="window.open('https://xeron.hostingers-vvip.my.id', '_blank')">Menuju Web</button>
+  </div>
+
+  <script>
+    const ramOptions = document.getElementById('ramOptions');
+    const ramValues = [...Array(20).keys()].map(i => (i + 1) + 'GB').concat('UNLI');
+    let selectedRam = null;
+
+    ramValues.forEach(val => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.innerText = val;
+      btn.onclick = () => {
+        selectedRam = val;
+        document.querySelectorAll('.ram-options button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      };
+      ramOptions.appendChild(btn);
+    });
+
+    function copyToClipboard() {
+      const text = `Username: ${document.getElementById('rUsername').innerText}\nPassword: ${document.getElementById('rPassword').innerText}\nLink: https://xeron.hostingers-vvip.my.id`;
+      navigator.clipboard.writeText(text);
+      alert("Info akun berhasil disalin!");
+    }
+
+    document.getElementById('createForm').onsubmit = async (e) => {
+      e.preventDefault();
+
+      const username = document.getElementById('username').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const cpu = parseInt(document.getElementById('cpu').value);
+
+      if (!username || !email || !selectedRam || isNaN(cpu)) {
+        alert("Semua form wajib diisi!");
+        return;
+      }
+      if (cpu > 100) {
+        alert("CPU TERLALU TINGGI!!");
+        return;
+      }
+
+      const ramMb = selectedRam === 'UNLI' ? 0 : parseInt(selectedRam) * 1024;
+      const password = username + Math.floor(Math.random() * 10000);
+
+      alert("Tunggu sekitar 3-4 menit ya bro, akun & server sedang dibuat...");
+      await new Promise(r => setTimeout(r, 220000)); // delay 3.6 menit
+
+      const response = await fetch("https://xeron.hostingers-vvip.my.id/api/application/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ptla_elo6hPZTQ4GHwL9bbMcnfUBi2vV6FISVfFJBJaiKuLT"
+        },
+        body: JSON.stringify({
+          username,
+          email,
+          first_name: username,
+          last_name: "user",
+          password
+        })
+      });
+      const user = await response.json();
+      if (!user.id) return alert("Gagal buat user. Cek API key atau data!");
+
+      const server = await fetch("https://xeron.hostingers-vvip.my.id/api/application/servers", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ptla_elo6hPZTQ4GHwL9bbMcnfUBi2vV6FISVfFJBJaiKuLT"
+        },
+        body: JSON.stringify({
+          name: username + "-server",
+          user: user.id,
+          egg: 15,
+          docker_image: "ghcr.io/parkervcp/yolks:nodejs_23",
+          startup: "npm start",
+          environment: {
+            USER_UPLOAD: "true"
+          },
+          limits: {
+            memory: ramMb,
+            swap: 0,
+            disk: 5120,
+            io: 500,
+            cpu
+          },
+          feature_limits: {
+            databases: 1,
+            allocations: 1,
+            backups: 0
+          },
+          allocation: {
+            default: 1
+          },
+          deploy: {
+            locations: [1],
+            dedicated_ip: false,
+            port_range: []
+          }
+        })
+      });
+
+      const res = await server.json();
+      if (res.object === 'server') {
+        document.getElementById('createForm').style.display = 'none';
+        document.getElementById('result').style.display = 'flex';
+        document.getElementById('rUsername').innerText = username;
+        document.getElementById('rPassword').innerText = password;
+      } else {
+        alert("❌ Gagal membuat server. Coba cek log API dan pastikan allocation ID valid.");
+      }
+    }
+  </script>
+</body>
+</html>
